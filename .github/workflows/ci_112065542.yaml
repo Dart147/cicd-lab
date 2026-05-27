@@ -49,7 +49,7 @@ jobs:
 
       - name: Publish test results to Actions summary
         if: always()
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         with:
           name: Vitest results
           path: reports/vitest-junit.xml
