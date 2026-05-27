@@ -1,0 +1,78 @@
+name: CI 112065542
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+concurrency:
+  group: ci-112065542-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Typecheck / Format / Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        id: typecheck
+        run: npm run typecheck
+
+      - name: Prettier check
+        id: prettier
+        run: npm run format:check
+
+      - name: Run tests (vitest, JUnit reporter)
+        id: tests
+        run: |
+          mkdir -p reports
+          npm test -- --reporter=default --reporter=junit --outputFile.junit=reports/vitest-junit.xml
+
+      - name: Publish test results to Actions summary
+        if: always()
+        uses: dorny/test-reporter@v3
+        with:
+          name: Vitest results
+          path: reports/vitest-junit.xml
+          reporter: jest-junit
+          fail-on-error: false
+
+      - name: CI Summary
+        if: always()
+        run: |
+          {
+            echo "# CI Summary"
+            echo ""
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| TypeScript typecheck | ${{ steps.typecheck.outcome }} |"
+            echo "| Prettier check       | ${{ steps.prettier.outcome }} |"
+            echo "| Vitest tests         | ${{ steps.tests.outcome }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test report artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-report-${{ github.run_id }}
+          path: reports/
+          if-no-files-found: warn
